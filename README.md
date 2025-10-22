@@ -1,6 +1,6 @@
 # STT - Voice-Activated Speech-to-Text
 
-A command-line tool that listens for a wake word (e.g., "hey james") and then transcribes your speech to the clipboard. Works offline using [OpenAI Whisper](https://github.com/openai/whisper) for speech recognition.
+A command-line tool that listens for a wake word (e.g., "hey") and then transcribes your speech to the clipboard. Works offline using [OpenAI Whisper](https://github.com/openai/whisper) for speech recognition.
 
 ## Features
 
@@ -66,7 +66,7 @@ uv run stt
 **First run**: The program will automatically download the Whisper model (~150MB for the default "base" model). This only happens once.
 
 The program will:
-1. Start listening for the wake word ("hey james" by default)
+1. Start listening for the wake word ("hey" by default)
 2. When detected, it will notify and start recording
 3. Speak your text
 4. After you stop speaking (2 seconds of silence), it will transcribe and copy to clipboard
@@ -92,7 +92,7 @@ Edit `src/stt/config.py` to customize:
 
 ```python
 # Wake word
-WAKE_WORD = "hey james"  # Change to your preferred wake word
+WAKE_WORD = "hey"  # Change to your preferred wake word
 
 # Audio settings
 SAMPLE_RATE = 16000      # Whisper works with 16kHz

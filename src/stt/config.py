@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 # Wake word configuration
-WAKE_WORD = "hello"
+WAKE_WORD = "hey"
 
 # Audio configuration
 SAMPLE_RATE = 16000  # Whisper works with 16kHz
