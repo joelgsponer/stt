@@ -1,14 +1,18 @@
 # STT - Voice-Activated Speech-to-Text
 
-A command-line tool that listens for a wake word (e.g., "hey") and then transcribes your speech to the clipboard. Works offline using [OpenAI Whisper](https://github.com/openai/whisper) for speech recognition.
+A command-line tool that listens for trigger words to either transcribe speech to clipboard or paste clipboard content at your cursor. Works offline using [OpenAI Whisper](https://github.com/openai/whisper) for speech recognition.
 
 ## Features
 
-- **Wake word detection**: Continuously listens for your custom wake word
+- **Multiple trigger methods**:
+  - Wake word ("hey") - Transcribe speech to clipboard
+  - Paste word ("engage") - Paste clipboard at cursor position
+  - Keyboard (Enter) - Manual transcription trigger
 - **Offline speech recognition**: Uses OpenAI Whisper models, no internet required after initial download
 - **Cross-platform clipboard**: Automatically copies transcriptions to clipboard (macOS & Linux)
+- **Keyboard automation**: Seamlessly paste text at cursor position
 - **High accuracy**: Whisper provides excellent transcription quality
-- **Customizable**: Easy configuration for wake words and audio parameters
+- **Customizable**: Easy configuration for trigger words and audio parameters
 
 ## Requirements
 
@@ -66,11 +70,15 @@ uv run stt
 **First run**: The program will automatically download the Whisper model (~150MB for the default "base" model). This only happens once.
 
 The program will:
-1. Start listening for the wake word ("hey" by default)
-2. When detected, it will notify and start recording
-3. Speak your text
-4. After you stop speaking (2 seconds of silence), it will transcribe and copy to clipboard
-5. Return to listening for the wake word
+1. Listen for trigger words ("hey" or "engage" by default) or keyboard input (Enter)
+2. When "hey" is detected or Enter is pressed:
+   - Start recording your speech
+   - After 2 seconds of silence, transcribe and copy to clipboard
+3. When "engage" is detected:
+   - Paste clipboard content at your current cursor position
+4. Return to listening for triggers
+
+**Keyboard Control**: Press Enter once to start recording, recording will automatically stop after 2 seconds of silence.
 
 Press `Ctrl+C` to exit.
 
@@ -91,8 +99,9 @@ stt
 Edit `src/stt/config.py` to customize:
 
 ```python
-# Wake word
-WAKE_WORD = "hey"  # Change to your preferred wake word
+# Trigger words
+WAKE_WORD = "hey"        # Transcribe speech to clipboard
+PASTE_WORD = "engage"    # Paste clipboard at cursor
 
 # Audio settings
 SAMPLE_RATE = 16000      # Whisper works with 16kHz
@@ -120,11 +129,17 @@ Choose based on your needs:
 - Verify your default input device is set correctly
 - Try adjusting `SILENCE_THRESHOLD` in config.py
 
-### Wake word not detected
+### Trigger words not detected
 - Speak clearly and at normal volume
 - Try adjusting `SILENCE_THRESHOLD`
-- The wake word detection processes 2-second windows of audio
+- Trigger word detection processes 2-second windows of audio
 - Lower background noise improves detection
+- Avoid common words that appear in normal speech (e.g., "hey")
+
+### Paste not working
+- Ensure the application you want to paste into has focus
+- On macOS, you may need to grant accessibility permissions
+- Check that clipboard contains text content
 
 ### Linux clipboard not working
 - Install `xclip` or `xsel` (see Platform-Specific Requirements)
@@ -159,22 +174,29 @@ stt/
 ## How It Works
 
 1. **Audio Capture**: Uses `sounddevice` to capture audio from your microphone in real-time
-2. **Wake Word Detection**: Continuously processes 2-second audio windows with Whisper, looking for your wake word
-3. **Speech Recognition**: Once activated, records until silence is detected, then transcribes with Whisper
-4. **Clipboard**: Uses platform-specific commands (pbcopy on macOS, xclip/xsel on Linux) to copy text
+2. **Trigger Word Detection**: Continuously processes 2-second audio windows with Whisper, listening for wake word or paste word
+3. **Speech Recognition**: When wake word detected, records until silence is detected, then transcribes with Whisper
+4. **Clipboard Operations**:
+   - Copy: Uses platform-specific commands (pbcopy on macOS, xclip/xsel on Linux)
+   - Paste: Uses `pyautogui` to simulate keyboard shortcuts (Cmd+V or Ctrl+V)
 
 ## Tips
 
-- Use a 2-3 word wake phrase for better detection
+- **For transcription**:
+  - Voice: Say the wake word ("hey"), wait for the recording indicator, then speak your text
+  - Keyboard: Press Enter to start recording immediately
+- **For pasting**: Say the paste word ("engage") while focused on the target application
+- **Keyboard method** is useful when you want immediate control without voice activation
+- Use unique trigger words that don't appear in normal speech
 - Speak naturally - no need to pause between words
 - If transcription quality is poor, try a larger Whisper model
 - Adjust `SILENCE_THRESHOLD` if it's too sensitive or not sensitive enough
-- For faster wake word detection, consider lowering the wake word duration in `transcribe.py`
 
 ## Performance Notes
 
-- **Wake word detection** uses Whisper on 2-second audio chunks, so there's a ~2-second polling interval
+- **Trigger word detection** uses Whisper on 2-second audio chunks, so there's a ~2-second polling interval
 - **Transcription** is very accurate but may take a few seconds depending on model size and hardware
+- **Paste operation** is nearly instantaneous once triggered
 - **Memory usage** varies by model:
   - tiny/base: ~1-2GB RAM
   - small: ~2-4GB RAM

@@ -4,7 +4,8 @@ import os
 from pathlib import Path
 
 # Wake word configuration
-WAKE_WORD = "hey"
+WAKE_WORD = "hey"  # Transcribe speech to clipboard
+PASTE_WORD = "engage"  # Paste clipboard at cursor
 
 # Audio configuration
 SAMPLE_RATE = 16000  # Whisper works with 16kHz

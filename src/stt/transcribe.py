@@ -17,6 +17,7 @@ from .config import (
     AUTO_CALIBRATE_THRESHOLD,
     MAX_RECORDING_DURATION,
     MIN_RECORDING_DURATION,
+    PASTE_WORD,
     SAMPLE_RATE,
     SILENCE_DURATION,
     SILENCE_THRESHOLD,
@@ -191,25 +192,100 @@ class SpeechRecognizer:
 
         return False
 
-    def listen_continuous(self, audio_stream: AudioStream) -> Optional[str]:
+    def detect_trigger_word(self, audio_stream: AudioStream) -> Optional[str]:
         """
-        Continuously listen for wake word, then transcribe speech.
+        Listen for either wake word or paste word.
 
         Args:
             audio_stream: AudioStream object providing audio data
 
         Returns:
-            Transcribed text or None if interrupted
+            "wake" if wake word detected, "paste" if paste word detected, None otherwise
+        """
+        logger.debug("Listening for trigger words...")
+
+        # Collect audio for a short period
+        audio_chunks = []
+        trigger_word_duration = 2.0  # Listen for 2 seconds at a time
+        start_time = time.time()
+
+        while time.time() - start_time < trigger_word_duration:
+            audio_data = audio_stream.read()
+            audio_chunks.append(audio_data)
+
+        if not audio_chunks:
+            return None
+
+        # Combine audio chunks
+        audio_bytes = b"".join(audio_chunks)
+        audio_array = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32)
+        audio_array = audio_array / 32768.0
+
+        # Quick transcription with Whisper (suppress progress bar)
+        old_stderr = sys.stderr
+        sys.stderr = open(os.devnull, 'w')
+        try:
+            result = self.model.transcribe(
+                audio_array, language="en", fp16=False, verbose=False
+            )
+            text = result["text"].lower().strip()
+
+            # Check for paste word first (higher priority)
+            paste_word_normalized = PASTE_WORD.lower().strip()
+            if paste_word_normalized in text:
+                wake_word_detected_sound()
+                return "paste"
+
+            # Check for wake word
+            wake_word_normalized = WAKE_WORD.lower().strip()
+            if wake_word_normalized in text:
+                wake_word_detected_sound()
+                return "wake"
+
+        except Exception as e:
+            logger.error(f"Error during trigger word detection: {e}")
+        finally:
+            sys.stderr.close()
+            sys.stderr = old_stderr
+
+        return None
+
+    def listen_continuous(self, audio_stream: AudioStream, keyboard_trigger: dict = None) -> tuple[Optional[str], str]:
+        """
+        Continuously listen for wake word, paste word, or keyboard trigger.
+
+        Args:
+            audio_stream: AudioStream object providing audio data
+            keyboard_trigger: Dict with 'active' and 'recording' flags for keyboard control
+
+        Returns:
+            Tuple of (transcribed text or None, trigger type "wake", "paste", or "keyboard")
         """
         # Calibrate on first run
         self.calibrate_threshold(audio_stream)
 
-        logger.info(f"Listening for wake word: '{WAKE_WORD}'")
+        logger.info(f"Listening for trigger words: '{WAKE_WORD}' or '{PASTE_WORD}'")
 
         try:
             while True:
-                if self.detect_wake_word(audio_stream):
+                # Check for keyboard trigger
+                if keyboard_trigger and keyboard_trigger["active"]:
+                    keyboard_trigger["active"] = False  # Reset flag
+                    if keyboard_trigger["recording"]:
+                        # Start recording
+                        wake_word_detected_sound()
+                        print(f"{Fore.GREEN}⌨️  Recording (keyboard)...{Style.RESET_ALL}")
+                        transcription = self.transcribe_audio(audio_stream)
+                        keyboard_trigger["recording"] = False  # Reset after done
+                        return (transcription, "keyboard")
+
+                # Listen for voice triggers
+                trigger = self.detect_trigger_word(audio_stream)
+                if trigger == "wake":
                     print(f"{Fore.GREEN}🎤 Recording...{Style.RESET_ALL}")
-                    return self.transcribe_audio(audio_stream)
+                    transcription = self.transcribe_audio(audio_stream)
+                    return (transcription, "wake")
+                elif trigger == "paste":
+                    return (None, "paste")
         except KeyboardInterrupt:
-            return None
+            return (None, "interrupt")

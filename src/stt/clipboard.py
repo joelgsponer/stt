@@ -3,6 +3,7 @@
 import logging
 import platform
 import subprocess
+import time
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -113,4 +114,164 @@ def _copy_pyperclip(text: str) -> bool:
         return False
     except Exception as e:
         logger.error(f"pyperclip failed: {e}")
+        return False
+
+
+def get_clipboard_content() -> Optional[str]:
+    """
+    Get text from the system clipboard.
+
+    Returns:
+        Clipboard text content or None if failed
+    """
+    system = platform.system()
+    logger.debug(f"Getting clipboard content from platform: {system}")
+
+    try:
+        if system == "Darwin":  # macOS
+            return _get_macos()
+        elif system == "Linux":
+            return _get_linux()
+        else:
+            logger.warning(f"Unsupported platform: {system}, trying pyperclip")
+            return _get_pyperclip()
+    except Exception as e:
+        logger.error(f"Failed to get clipboard content: {e}")
+        # Try fallback to pyperclip
+        try:
+            return _get_pyperclip()
+        except Exception as fallback_error:
+            logger.error(f"Fallback to pyperclip failed: {fallback_error}")
+            return None
+
+
+def _get_macos() -> Optional[str]:
+    """Get clipboard content on macOS using pbpaste."""
+    try:
+        result = subprocess.run(
+            ["pbpaste"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        logger.info("Got clipboard content (macOS)")
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        logger.error(f"pbpaste failed: {e.stderr}")
+        return None
+    except FileNotFoundError:
+        logger.error("pbpaste not found")
+        return None
+
+
+def _get_linux() -> Optional[str]:
+    """Get clipboard content on Linux using xclip or xsel."""
+    # Try xclip first
+    try:
+        result = subprocess.run(
+            ["xclip", "-selection", "clipboard", "-o"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        logger.info("Got clipboard content (Linux/xclip)")
+        return result.stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        logger.debug("xclip failed, trying xsel")
+
+    # Try xsel as fallback
+    try:
+        result = subprocess.run(
+            ["xsel", "--clipboard", "--output"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        logger.info("Got clipboard content (Linux/xsel)")
+        return result.stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        logger.error("Neither xclip nor xsel could get clipboard content")
+        return None
+
+
+def _get_pyperclip() -> Optional[str]:
+    """Fallback to pyperclip for getting clipboard content."""
+    try:
+        import pyperclip
+
+        content = pyperclip.paste()
+        logger.info("Got clipboard content (pyperclip)")
+        return content
+    except ImportError:
+        logger.error("pyperclip not installed")
+        return None
+    except Exception as e:
+        logger.error(f"pyperclip failed: {e}")
+        return None
+
+
+def paste_at_cursor() -> bool:
+    """
+    Paste clipboard content at the current cursor position.
+
+    Uses keyboard automation to simulate Cmd+V (macOS) or Ctrl+V (Linux/Windows).
+
+    Returns:
+        True if successful, False otherwise
+    """
+    system = platform.system()
+    logger.debug(f"Pasting at cursor on platform: {system}")
+
+    if system == "Darwin":  # macOS
+        # Try AppleScript first as it's more reliable on macOS
+        try:
+            # Use keystroke command which works better with accessibility
+            script = '''
+            tell application "System Events"
+                keystroke "v" using command down
+            end tell
+            '''
+            result = subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if result.returncode == 0:
+                logger.info("Pasted using AppleScript")
+                return True
+            else:
+                logger.warning(f"AppleScript paste failed: {result.stderr}")
+        except Exception as e:
+            logger.warning(f"AppleScript method failed: {e}")
+
+    # Try pyautogui as fallback or for non-macOS
+    try:
+        import pyautogui
+
+        # Longer delay to ensure focus
+        time.sleep(0.2)
+
+        if system == "Darwin":  # macOS
+            # Press and hold Command, press v, release both
+            pyautogui.keyDown('command')
+            time.sleep(0.05)
+            pyautogui.press('v')
+            time.sleep(0.05)
+            pyautogui.keyUp('command')
+        else:  # Linux/Windows
+            # Press and hold Ctrl, press v, release both
+            pyautogui.keyDown('ctrl')
+            time.sleep(0.05)
+            pyautogui.press('v')
+            time.sleep(0.05)
+            pyautogui.keyUp('ctrl')
+
+        logger.info("Pasted clipboard content at cursor using pyautogui")
+        return True
+    except ImportError:
+        logger.error("pyautogui not installed")
+        return False
+    except Exception as e:
+        logger.error(f"Failed to paste at cursor: {e}")
         return False
