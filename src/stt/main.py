@@ -18,7 +18,9 @@ from .transcribe import SpeechRecognizer
 init(autoreset=True)
 
 # Global flag for keyboard trigger
-keyboard_trigger = {"active": False, "recording": False}
+keyboard_trigger = {"active": False, "recording": False, "stop_requested": False}
+# Track modifier keys
+modifiers_pressed = {"ctrl": False, "shift": False}
 
 
 def setup_logging():
@@ -37,15 +39,34 @@ def setup_logging():
 def on_press(key):
     """Handle keyboard press events."""
     try:
-        if key == keyboard.Key.enter:
-            if not keyboard_trigger["recording"]:
-                # Start recording
-                keyboard_trigger["active"] = True
-                keyboard_trigger["recording"] = True
-            else:
-                # Stop recording
-                keyboard_trigger["active"] = True
-                keyboard_trigger["recording"] = False
+        # Track modifier keys
+        if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r:
+            modifiers_pressed["ctrl"] = True
+        elif key == keyboard.Key.shift or key == keyboard.Key.shift_r:
+            modifiers_pressed["shift"] = True
+        # Check for Ctrl+Shift+Enter
+        elif key == keyboard.Key.enter:
+            if modifiers_pressed["ctrl"] and modifiers_pressed["shift"]:
+                if not keyboard_trigger["recording"]:
+                    # Start recording
+                    keyboard_trigger["active"] = True
+                    keyboard_trigger["recording"] = True
+                    keyboard_trigger["stop_requested"] = False
+                else:
+                    # Stop recording
+                    keyboard_trigger["stop_requested"] = True
+    except AttributeError:
+        pass
+
+
+def on_release(key):
+    """Handle keyboard release events."""
+    try:
+        # Reset modifier keys
+        if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r:
+            modifiers_pressed["ctrl"] = False
+        elif key == keyboard.Key.shift or key == keyboard.Key.shift_r:
+            modifiers_pressed["shift"] = False
     except AttributeError:
         pass
 
@@ -63,13 +84,13 @@ def run():
     print(f"{Fore.CYAN}{'=' * 60}{Style.RESET_ALL}")
     print(f"\n{Fore.YELLOW}Wake word:{Style.RESET_ALL} '{Fore.GREEN}{WAKE_WORD}{Style.RESET_ALL}' (transcribe)")
     print(f"{Fore.YELLOW}Paste word:{Style.RESET_ALL} '{Fore.GREEN}{PASTE_WORD}{Style.RESET_ALL}' (paste clipboard)")
-    print(f"{Fore.YELLOW}Keyboard:{Style.RESET_ALL} {Fore.GREEN}Enter{Style.RESET_ALL} (manual transcribe)")
+    print(f"{Fore.YELLOW}Keyboard:{Style.RESET_ALL} {Fore.GREEN}Ctrl+Shift+Enter{Style.RESET_ALL} (manual transcribe)")
     print(f"{Fore.YELLOW}Model:{Style.RESET_ALL} {Fore.GREEN}{WHISPER_MODEL}{Style.RESET_ALL}")
     print(f"\n{Fore.MAGENTA}Press Ctrl+C to exit{Style.RESET_ALL}\n")
 
     try:
         # Start keyboard listener in background
-        listener = keyboard.Listener(on_press=on_press)
+        listener = keyboard.Listener(on_press=on_press, on_release=on_release)
         listener.start()
 
         # Initialize components (will download model on first run)
@@ -79,7 +100,7 @@ def run():
 
         # Start audio stream
         with AudioStream() as audio_stream:
-            print(f"\n{Fore.CYAN}👂 Listening for '{Fore.GREEN}{WAKE_WORD}{Fore.CYAN}' or '{Fore.GREEN}{PASTE_WORD}{Fore.CYAN}' (or press Enter)...{Style.RESET_ALL}\n")
+            print(f"\n{Fore.CYAN}👂 Listening for '{Fore.GREEN}{WAKE_WORD}{Fore.CYAN}' or '{Fore.GREEN}{PASTE_WORD}{Fore.CYAN}' (or Ctrl+Shift+Enter)...{Style.RESET_ALL}\n")
 
             while True:
                 # Listen for wake word, paste word, or keyboard trigger
@@ -114,7 +135,7 @@ def run():
                     else:
                         print(f"{Fore.YELLOW}⚠ No speech detected{Style.RESET_ALL}")
 
-                print(f"\n{Fore.CYAN}👂 Listening for '{Fore.GREEN}{WAKE_WORD}{Fore.CYAN}' or '{Fore.GREEN}{PASTE_WORD}{Fore.CYAN}' (or press Enter)...{Style.RESET_ALL}\n")
+                print(f"\n{Fore.CYAN}👂 Listening for '{Fore.GREEN}{WAKE_WORD}{Fore.CYAN}' or '{Fore.GREEN}{PASTE_WORD}{Fore.CYAN}' (or Ctrl+Shift+Enter)...{Style.RESET_ALL}\n")
 
     except KeyboardInterrupt:
         print(f"\n\n{Fore.CYAN}👋 Goodbye!{Style.RESET_ALL}")

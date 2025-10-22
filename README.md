@@ -7,7 +7,7 @@ A command-line tool that listens for trigger words to either transcribe speech t
 - **Multiple trigger methods**:
   - Wake word ("hey") - Transcribe speech to clipboard
   - Paste word ("engage") - Paste clipboard at cursor position
-  - Keyboard (Enter) - Manual transcription trigger
+  - Keyboard (Ctrl+Shift+Enter) - Manual transcription trigger
 - **Offline speech recognition**: Uses OpenAI Whisper models, no internet required after initial download
 - **Cross-platform clipboard**: Automatically copies transcriptions to clipboard (macOS & Linux)
 - **Keyboard automation**: Seamlessly paste text at cursor position
@@ -70,15 +70,15 @@ uv run stt
 **First run**: The program will automatically download the Whisper model (~150MB for the default "base" model). This only happens once.
 
 The program will:
-1. Listen for trigger words ("hey" or "engage" by default) or keyboard input (Enter)
-2. When "hey" is detected or Enter is pressed:
+1. Listen for trigger words ("hey" or "engage" by default) or keyboard input (Ctrl+Shift+Enter)
+2. When "hey" is detected or Ctrl+Shift+Enter is pressed:
    - Start recording your speech
    - After 2 seconds of silence, transcribe and copy to clipboard
 3. When "engage" is detected:
    - Paste clipboard content at your current cursor position
 4. Return to listening for triggers
 
-**Keyboard Control**: Press Enter once to start recording, recording will automatically stop after 2 seconds of silence.
+**Keyboard Control**: Press Ctrl+Shift+Enter to start recording. Press it again to stop immediately, or recording will automatically stop after 2 seconds of silence.
 
 Press `Ctrl+C` to exit.
 
@@ -184,7 +184,7 @@ stt/
 
 - **For transcription**:
   - Voice: Say the wake word ("hey"), wait for the recording indicator, then speak your text
-  - Keyboard: Press Enter to start recording immediately
+  - Keyboard: Press Ctrl+Shift+Enter to start, press again to stop (or wait for auto-stop after silence)
 - **For pasting**: Say the paste word ("engage") while focused on the target application
 - **Keyboard method** is useful when you want immediate control without voice activation
 - Use unique trigger words that don't appear in normal speech

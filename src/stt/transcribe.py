@@ -65,12 +65,13 @@ class SpeechRecognizer:
             print(f"\r{Fore.GREEN}✓ Calibrated{Style.RESET_ALL} (threshold: {self.silence_threshold})       ")
             self.calibrated = True
 
-    def transcribe_audio(self, audio_stream: AudioStream) -> str:
+    def transcribe_audio(self, audio_stream: AudioStream, keyboard_trigger: dict = None) -> str:
         """
-        Transcribe audio from the stream until silence is detected.
+        Transcribe audio from the stream until silence is detected or manual stop.
 
         Args:
             audio_stream: AudioStream object providing audio data
+            keyboard_trigger: Optional dict with 'stop_requested' flag for manual stop
 
         Returns:
             Transcribed text
@@ -83,6 +84,11 @@ class SpeechRecognizer:
         has_audio = False
 
         while True:
+            # Check for manual stop via keyboard
+            if keyboard_trigger and keyboard_trigger.get("stop_requested", False):
+                logger.info("Manual stop requested")
+                break
+
             # Check max recording duration
             if time.time() - recording_start > MAX_RECORDING_DURATION:
                 logger.info("Max recording duration reached")
@@ -274,9 +280,10 @@ class SpeechRecognizer:
                     if keyboard_trigger["recording"]:
                         # Start recording
                         wake_word_detected_sound()
-                        print(f"{Fore.GREEN}⌨️  Recording (keyboard)...{Style.RESET_ALL}")
-                        transcription = self.transcribe_audio(audio_stream)
+                        print(f"{Fore.GREEN}⌨️  Recording (keyboard)... Press Ctrl+Shift+Enter to stop{Style.RESET_ALL}")
+                        transcription = self.transcribe_audio(audio_stream, keyboard_trigger)
                         keyboard_trigger["recording"] = False  # Reset after done
+                        keyboard_trigger["stop_requested"] = False  # Reset stop flag
                         return (transcription, "keyboard")
 
                 # Listen for voice triggers
