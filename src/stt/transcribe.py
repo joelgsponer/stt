@@ -2,6 +2,8 @@
 
 import io
 import logging
+import os
+import sys
 import time
 from typing import Optional
 
@@ -115,14 +117,19 @@ class SpeechRecognizer:
         audio_array = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32)
         audio_array = audio_array / 32768.0  # Normalize to [-1, 1]
 
-        # Transcribe with Whisper
-        logger.info("Transcribing with Whisper...")
-        result = self.model.transcribe(
-            audio_array, language="en", fp16=False, verbose=False
-        )
+        # Transcribe with Whisper (suppress progress bar)
+        # Redirect stderr to suppress tqdm progress bars
+        old_stderr = sys.stderr
+        sys.stderr = open(os.devnull, 'w')
+        try:
+            result = self.model.transcribe(
+                audio_array, language="en", fp16=False, verbose=False
+            )
+        finally:
+            sys.stderr.close()
+            sys.stderr = old_stderr
 
         transcription = result["text"].strip()
-        logger.info(f"Transcription complete: {transcription}")
         return transcription
 
     def detect_wake_word(
@@ -160,7 +167,9 @@ class SpeechRecognizer:
         audio_array = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32)
         audio_array = audio_array / 32768.0
 
-        # Quick transcription with Whisper
+        # Quick transcription with Whisper (suppress progress bar)
+        old_stderr = sys.stderr
+        sys.stderr = open(os.devnull, 'w')
         try:
             result = self.model.transcribe(
                 audio_array, language="en", fp16=False, verbose=False
@@ -171,12 +180,14 @@ class SpeechRecognizer:
             wake_word_normalized = wake_word.lower().strip()
 
             if wake_word_normalized in text:
-                logger.info(f"Wake word detected in: {text}")
                 # Play wake word detection sound
                 wake_word_detected_sound()
                 return True
         except Exception as e:
             logger.error(f"Error during wake word detection: {e}")
+        finally:
+            sys.stderr.close()
+            sys.stderr = old_stderr
 
         return False
 
